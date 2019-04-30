@@ -229,7 +229,7 @@ and renderValue topLevel value =
 
 let view trigger state =
   h?div [] [
-    h?button [ "click" =!> fun _ _ -> trigger Evaluate ] [ text "Evaluate step" ] 
+    h?button [ "style" => "padding:10px"; "click" =!> fun _ _ -> trigger Evaluate ] [ text "Evaluate step" ] 
     h?div [] [ renderValue true state.Document ]
   ]
 
@@ -250,7 +250,83 @@ let s n = Sample(String n)
 let i n = Sample(Int n)
 let n n = Name n
 
-let demo = blck [ 
+let e1 = blck [
+  "it" => set (s "abc")
+  "res" => app (n "match-string") [ "it" => set (n "it"); "str" => set (s "a") ]
+]
+
+let e2 = blck [
+  "it" => set (s "abc")
+  "res" => app (n "match-string") [ "it" => set (n "it"); "str" => set (s "x") ]
+]
+
+let e3 = blck [
+  "it" => set (s "2")
+  "tmp" => ( choose [
+    !> ( blck [ 
+      !> ( app (n "match-string") [ "it" => set (n "it"); "str" => set (s "1") ] )  
+      "value" => set (i 1)
+    ] )
+    !> ( blck [ 
+      !> ( app (n "match-string") [ "it" => set (n "it"); "str" => set (s "2") ] )  
+      "value" => set (i 2)
+    ] )
+    !> ( blck [ 
+      !> ( app (n "match-string") [ "it" => set (n "it"); "str" => set (s "3") ] )  
+      "value" => set (i 3)
+    ] )
+  ] )
+  "res" => dot (set (n "tmp")) "value"
+]
+
+
+let e4 = blck [ 
+  "match-digit" => ( fn [
+    "it" => set (s "")
+    "tmp" => ( choose [
+      !> ( blck [ 
+        "rest" => ( app (n "match-string") [ "it" => set (n "it"); "str" => set (s "1") ] )  
+        "value" => set (i 1)
+      ] )
+      !> ( blck [ 
+        "rest" => ( app (n "match-string") [ "it" => set (n "it"); "str" => set (s "2") ] )  
+        "value" => set (i 2)
+      ] )
+      !> ( blck [ 
+        "rest" => ( app (n "match-string") [ "it" => set (n "it"); "str" => set (s "3") ] )  
+        "value" => set (i 3)
+      ] )
+    ] )
+    "res" => dot (set (n "tmp")) "value"
+  ] )
+
+  "parse" => ( fn [
+    "it" => set (s "1*2")
+    "num1" => ( app (n "match-digit") [ "it" => set (n "it") ] )
+    "it" => dot (set (n "num1")) "tmp"
+    "it" => dot (set (n "it")) "rest"
+    "num1" => dot (set (n "num1")) "res"
+    "op" => ( choose [
+      !> ( blck [
+        "rest" => 
+          ( app (n "match-string") 
+              [ "it" => set (n "it"); "str" => set (s "*") ] )
+        "kind" => set (s "times")
+      ] )
+      !> ( blck [
+        "rest" => 
+          ( app (n "match-string") 
+              [ "it" => set (n "it"); "str" => set (s "+") ] )
+        "kind" => set (s "plus")
+      ] )
+    ] )
+    "it" => dot (set (n "op")) "rest"
+    "num2" => ( app (n "match-digit") [ "it" => set (n "it") ] )
+    "num2" => dot (set (n "num2")) "res"
+  ] )
+]
+
+let e5 = blck [ 
   "match-digit" => ( fn [
     "it" => set (s "")
     "tmp" => ( choose [
@@ -323,6 +399,16 @@ let demo = blck [
   "v1" => ( dot (set (n "v1")) "value" )
   "v2" => ( dot (set (n "v2")) "value" )
 ]
-
-let state = { Document = demo }
+let state = { Document = e5 }
 createVirtualDomApp "out" state view update 
+
+// TODO: We can eliminate Function blocks by keeping original 'Code' in 'Value'.
+// That way, we can evaluate Function blocks to Fail as normal blocks would,
+// but call would access the original 'Code' of the function.
+//
+// TODO: Can we get higher-order functions by passing functions around as code?
+// Say we write `foo^` for the code of the field `foo`. Can I then call a 
+// function by saying:  `app (n "map") [ "f" => set (n "foo^") ]` ??
+//
+// TODO: How do we handle recomputation in a spreadsheet-like way?
+// In dev mode, you can change the formulas, but in dev-mode, you only change constants.
